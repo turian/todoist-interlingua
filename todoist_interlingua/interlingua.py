@@ -70,6 +70,7 @@ def pull_data(api_token: str):
 
         project_dict = {project.id: project for project in projects}
         section_dict = {section.id: section for section in sections}
+        task_dict = {task.id: task for task in tasks}
 
         # Nest sections within projects
         for section in sections:
@@ -78,7 +79,9 @@ def pull_data(api_token: str):
 
         # Nest tasks within sections and projects
         for task in tasks:
-            if task.section_id and task.section_id in section_dict:
+            if task.parent_id and task.parent_id in task_dict:
+                task_dict[task.parent_id].subtasks.append(task)
+            elif task.section_id and task.section_id in section_dict:
                 section_dict[task.section_id].tasks.append(task)
             elif task.project_id and task.project_id in project_dict:
                 project_dict[task.project_id].tasks.append(task)
@@ -96,12 +99,6 @@ def pull_data(api_token: str):
 
         print("Data pulled successfully")
 
-    except requests.exceptions.RequestException as e:
-        print(f"HTTP Request failed: {e}")
-    except ValidationError as e:
-        print(e.json())
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON: {e}")
     except requests.exceptions.RequestException as e:
         print(f"HTTP Request failed: {e}")
     except ValidationError as e:
