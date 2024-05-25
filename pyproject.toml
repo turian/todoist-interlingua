@@ -14,7 +14,7 @@ maintainers = [
   {name = "Joseph Turian", email = "lastname@gmail.com"}
 ]
 classifiers = [
-
+  # Add appropriate classifiers here
 ]
 license = {text = "Apache Software License 2.0"}
 dependencies = [
@@ -30,19 +30,18 @@ dev = [
 ]
 
 [project.urls]
-
 bugs = "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}/issues"
 changelog = "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}/blob/master/changelog.md"
 homepage = "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "."}
 
-[tool.setuptools.package-data]
-"*" = ["*.*"]
+#[tool.setuptools.package-data]
+#"*" = ["*.*"]
 
-
-
+[tool.setuptools.packages.find]
+where = ["todoist_interlingua"]
 
 # Mypy
 # ----
@@ -60,4 +59,3 @@ warn_no_return = true
 module = "tests.*"
 allow_untyped_defs = true
 disable_error_code = "attr-defined"
-
