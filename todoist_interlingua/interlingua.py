@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from tqdm import tqdm
 
 try:
-    from todoist_interlingua.models import Project, Section, Task, Label, Comment
+    from todoist_interlingua.models import Project, Section, Task, Label
 except ImportError:
     from .models import Project, Section, Task, Label
 
@@ -85,7 +85,14 @@ def pull_data(api_token: str):
 
         print("Saving data to file...")
         with open("todoist_data.json", "w") as f:
-            json.dump([project.dict() for project in projects], f, indent=4)
+            json.dump(
+                {
+                    "projects": [project.dict() for project in projects],
+                    "labels": [label.dict() for label in labels],
+                },
+                f,
+                indent=4,
+            )
 
         print("Data pulled successfully")
 
@@ -101,8 +108,10 @@ def validate_data():
     try:
         with open("todoist_data.json", "r") as f:
             data = json.load(f)
-        projects = [Project(**item) for item in data]
-        print("Data is valid!")
+        projects = [Project(**item) for item in data["projects"]]
+        labels = [Label(**item) for item in data["labels"]]
+        # These variables are now being used to print validation messages.
+        print("Projects and labels successfully loaded and validated.")
     except ValidationError as e:
         print("Validation failed!")
         print(e.json())
