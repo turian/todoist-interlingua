@@ -1,12 +1,13 @@
 import requests
 import json
+import time
 from pydantic import ValidationError
 from tqdm import tqdm
 
 try:
     from todoist_interlingua.models import Project, Section, Task, Label, Comment
 except ImportError:
-    from .models import Project, Section, Task, Label, Comment
+    from .models import Project, Section, Task, Label
 
 API_BASE_URL = "https://api.todoist.com/rest/v2"
 
@@ -15,65 +16,43 @@ def get_headers(api_token: str):
     return {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
 
 
+def make_request_with_retry(url, headers, retries=5, backoff_factor=1):
+    for i in range(retries):
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 429:  # Rate limit error
+                wait_time = backoff_factor * (2**i)
+                print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                raise e
+    raise Exception("Max retries exceeded")
+
+
 def pull_data(api_token: str):
     try:
         print("Pulling projects...")
-        projects_response = requests.get(
-            f"{API_BASE_URL}/projects", headers=get_headers(api_token)
+        projects_data = make_request_with_retry(
+            f"{API_BASE_URL}/projects", get_headers(api_token)
         )
-        projects_response.raise_for_status()
-        projects_data = projects_response.json()
 
         print("Pulling sections...")
-        sections_response = requests.get(
-            f"{API_BASE_URL}/sections", headers=get_headers(api_token)
+        sections_data = make_request_with_retry(
+            f"{API_BASE_URL}/sections", get_headers(api_token)
         )
-        sections_response.raise_for_status()
-        sections_data = sections_response.json()
 
         print("Pulling tasks...")
-        tasks_response = requests.get(
-            f"{API_BASE_URL}/tasks", headers=get_headers(api_token)
+        tasks_data = make_request_with_retry(
+            f"{API_BASE_URL}/tasks", get_headers(api_token)
         )
-        tasks_response.raise_for_status()
-        tasks_data = tasks_response.json()
 
         print("Pulling labels...")
-        labels_response = requests.get(
-            f"{API_BASE_URL}/labels", headers=get_headers(api_token)
+        labels_data = make_request_with_retry(
+            f"{API_BASE_URL}/labels", get_headers(api_token)
         )
-        labels_response.raise_for_status()
-        labels_data = labels_response.json()
-
-        print("Pulling comments for projects...")
-        project_comments_data = []
-        for project in tqdm(projects_data, desc="Fetching project comments"):
-            comments_response = requests.get(
-                f"{API_BASE_URL}/comments?project_id={project['id']}",
-                headers=get_headers(api_token),
-            )
-            if comments_response.status_code == 200:
-                project_comments_data.extend(comments_response.json())
-            else:
-                print(
-                    f"Failed to fetch comments for project {project['id']}: {comments_response.text}"
-                )
-
-        print("Pulling comments for tasks...")
-        task_comments_data = []
-        for task in tqdm(tasks_data, desc="Fetching task comments"):
-            comments_response = requests.get(
-                f"{API_BASE_URL}/comments?task_id={task['id']}",
-                headers=get_headers(api_token),
-            )
-            if comments_response.status_code == 200:
-                task_comments_data.extend(comments_response.json())
-            else:
-                print(
-                    f"Failed to fetch comments for task {task['id']}: {comments_response.text}"
-                )
-
-        comments_data = project_comments_data + task_comments_data
 
         print("Processing data...")
         projects = [
@@ -88,23 +67,28 @@ def pull_data(api_token: str):
         labels = [
             Label(**label) for label in tqdm(labels_data, desc="Processing labels")
         ]
-        comments = [
-            Comment(**comment)
-            for comment in tqdm(comments_data, desc="Processing comments")
-        ]
 
-        for project in projects:
-            project.sections = [
-                section for section in sections if section.project_id == project.id
-            ]
-            for section in project.sections:
-                section.tasks = [
-                    task for task in tasks if task.section_id == section.id
-                ]
+        project_dict = {project.id: project for project in projects}
+        section_dict = {section.id: section for section in sections}
+
+        # Nest sections within projects
+        for section in sections:
+            if section.project_id in project_dict:
+                project_dict[section.project_id].sections.append(section)
+
+        # Nest tasks within sections and projects
+        for task in tasks:
+            if task.section_id and task.section_id in section_dict:
+                section_dict[task.section_id].tasks.append(task)
+            elif task.project_id and task.project_id in project_dict:
+                project_dict[task.project_id].tasks.append(task)
 
         print("Saving data to file...")
         with open("todoist_data.json", "w") as f:
             json.dump([project.dict() for project in projects], f, indent=4)
+
+        print("Data pulled successfully")
+
     except requests.exceptions.RequestException as e:
         print(f"HTTP Request failed: {e}")
     except ValidationError as e:

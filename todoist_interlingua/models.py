@@ -49,7 +49,7 @@ class Section(BaseModel):
     project_id: str
     order: int
     name: str = Field(..., max_length=255)
-    tasks: List[Task] = []  # Added relationship to tasks
+    tasks: List[Task] = []
 
 
 class Project(BaseModel):
@@ -65,7 +65,8 @@ class Project(BaseModel):
     is_team_inbox: bool
     view_style: str
     url: str
-    sections: List[Section] = []  # Added relationship to sections
+    sections: List[Section] = []
+    tasks: List[Task] = []
 
 
 class Attachment(BaseModel):
