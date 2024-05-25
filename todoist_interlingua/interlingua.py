@@ -84,18 +84,24 @@ def pull_data(api_token: str):
                 project_dict[task.project_id].tasks.append(task)
 
         print("Saving data to file...")
-        with open("todoist_data.json", "w") as f:
-            json.dump(
-                {
-                    "projects": [project.dict() for project in projects],
-                    "labels": [label.dict() for label in labels],
-                },
-                f,
-                indent=4,
-            )
+        with open("todoist_data.jsonl", "w") as f:
+            for project in projects:
+                f.write(json.dumps({"type": "project", **project.dict()}) + "\n")
+            for section in sections:
+                f.write(json.dumps({"type": "section", **section.dict()}) + "\n")
+            for task in tasks:
+                f.write(json.dumps({"type": "task", **task.dict()}) + "\n")
+            for label in labels:
+                f.write(json.dumps({"type": "label", **label.dict()}) + "\n")
 
         print("Data pulled successfully")
 
+    except requests.exceptions.RequestException as e:
+        print(f"HTTP Request failed: {e}")
+    except ValidationError as e:
+        print(e.json())
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON: {e}")
     except requests.exceptions.RequestException as e:
         print(f"HTTP Request failed: {e}")
     except ValidationError as e:
@@ -106,12 +112,20 @@ def pull_data(api_token: str):
 
 def validate_data():
     try:
-        with open("todoist_data.json", "r") as f:
-            data = json.load(f)
-        projects = [Project(**item) for item in data["projects"]]
-        labels = [Label(**item) for item in data["labels"]]
-        # These variables are now being used to print validation messages.
-        print("Projects and labels successfully loaded and validated.")
+        with open("todoist_data.jsonl", "r") as f:
+            for line in f:
+                data = json.loads(line)
+                if data["type"] == "project":
+                    Project(**data)
+                elif data["type"] == "section":
+                    Section(**data)
+                elif data["type"] == "task":
+                    Task(**data)
+                elif data["type"] == "label":
+                    Label(**data)
+        print(
+            "Projects, sections, tasks, and labels successfully loaded and validated."
+        )
     except ValidationError as e:
         print("Validation failed!")
         print(e.json())
