@@ -1,21 +1,36 @@
-"""Console script for todoist_interlingua."""
-import todoist_interlingua
-
+import os
 import typer
-from rich.console import Console
+from .todoist_interlingua import pull_data, validate_data, push_data, generate_schema
 
 app = typer.Typer()
-console = Console()
-
 
 @app.command()
-def main():
-    """Console script for todoist_interlingua."""
-    console.print("Replace this message by putting your code into "
-               "todoist_interlingua.cli.main")
-    console.print("See Typer documentation at https://typer.tiangolo.com/")
-    
+def pull(api_token: str = typer.Option(None, envvar='TODOIST_API_TOKEN')):
+    """
+    Pull the entire state of your Todoist database.
+    """
+    pull_data(api_token)
 
+@app.command()
+def validate():
+    """
+    Validate the Todoist data in the local JSON file.
+    """
+    validate_data()
+
+@app.command()
+def push(api_token: str = typer.Option(None, envvar='TODOIST_API_TOKEN')):
+    """
+    Push the modified Todoist data back to Todoist.
+    """
+    push_data(api_token)
+
+@app.command()
+def generate_schema():
+    """
+    Generate JSON Schema from the Pydantic models.
+    """
+    generate_schema()
 
 if __name__ == "__main__":
     app()
